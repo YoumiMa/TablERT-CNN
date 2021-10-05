@@ -88,7 +88,7 @@ class _2DTrans(BertPreTrainedModel):
         self._attn_type = attn_type
         
         # embeddings for entity
-#         self.entity_label_embedding = nn.Embedding(entity_labels, entity_label_embedding)
+        self.entity_label_embedding = nn.Embedding(entity_labels, entity_label_embedding)
         
         # embeddings for relation
 #         self.rel_label_embedding = nn.Embedding(relation_labels, rel_label_embedding)
@@ -101,9 +101,11 @@ class _2DTrans(BertPreTrainedModel):
         
         self.pos_encoder = PositionalEncoding(d_model = config.hidden_size, dropout = prop_drop)
         
-        self.encoder_layers = TableTransformerLayer(n_heads = encoder_heads, input_dim = encoder_dim,  hid_dim = encoder_hidden, attn_type = attn_type, device = device, activation="relu")
+        self.encoder_layers = TableTransformerLayer(n_heads = encoder_heads, input_dim = encoder_dim,  hid_dim = encoder_hidden, attn_type = attn_type, device = device, activation="relu", dropout=prop_drop)
+    
         
         self.encoder = TableTransformer(self.encoder_layers, encoder_layers)
+#         self.encoder = MLPNet(encoder_dim, encoder_dim)
 
         self.ent_classifier = nn.Linear(encoder_dim, entity_labels)
         self.rel_classifier = nn.Linear(encoder_dim, relation_labels)
@@ -145,15 +147,14 @@ class _2DTrans(BertPreTrainedModel):
         # entity_label span repr.
 #         entity_label_embeddings = self.entity_label_embedding(entity_labels)  
 #         entity_label_pool = util.max_pooling(entity_label_embeddings, entity_masks)
-        
+
         # rel repr for classification.
         
 #         embed_rel = self.rel_label_embedding(rel_preds)
-        
+    
 #         entry_repr = torch.cat([h, entity_label_embeddings], dim=2)
         entry_repr = h
         entry_repr[entry_repr == -1e30] = 0
-        
 #         entry_repr = self.pos_encoder(entry_repr)
 #         entry_repr = torch.cat([entity_repr_pool, entity_label_pool], dim=2)
         entry_repr = entry_repr.unsqueeze(1).repeat(1, h.shape[1], 1, 1)
@@ -161,11 +162,11 @@ class _2DTrans(BertPreTrainedModel):
         
 #         rel_repr = torch.cat([entry_repr.transpose(1,2), entry_repr, embed_rel], dim=3)
         rel_repr = torch.cat([entry_repr.transpose(1,2), entry_repr], dim=3)
+#         print("rel repr:", rel_repr)
         encoder_repr = rel_repr
-
         
 #         attn_mask = torch.eye(context_size, dtype=torch.bool, device = self.device)
-#         context_mask_2d = context_masks.unsqueeze(1) * context_masks.unsqueeze(1).permute(0,2,1)
+#         context_mask_2d = token_context_masks.unsqueeze(1) * token_context_masks.unsqueeze(1).permute(0,2,1)
 #         attn_mask = attn_mask.logical_or(~(context_mask_2d))
 #         torch.set_printoptions(edgeitems=20)
 
@@ -173,12 +174,11 @@ class _2DTrans(BertPreTrainedModel):
             encoder_repr = encoder_repr.flatten(1,2)
             attn_mask = token_context_masks.unsqueeze(1) * token_context_masks.unsqueeze(1).permute(0,2,1)
             attn_mask = attn_mask.flatten()
-        
-        pad_mask =  token_context_masks.unsqueeze(1) * token_context_masks.unsqueeze(1).permute(0,2,1)
-        pad_mask = (~pad_mask).reshape(-1, context_size)
-        
-        attention = self.encoder(encoder_repr, pad_mask)
-    
+
+#         attention = self.encoder(encoder_repr)
+        attention = self.encoder(encoder_repr, src_key_padding_mask = token_context_masks)
+#         attention = self.dropout(rel_repr)
+
         if self._attn_type != "CR":
             attention = attention.view(context_size, context_size, batch_size, -1).permute(2,0,1,3)
 
@@ -248,11 +248,12 @@ class _2DTrans(BertPreTrainedModel):
         return entity_logits, rel_logits
 
     
-    def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_masks: torch.tensor, entity_masks: List[torch.tensor], 
-                       pred_entities: List[torch.tensor], pred_relations: List[torch.tensor]):  
+    def _forward_eval(self, encodings: torch.tensor, context_masks: torch.tensor, 
+                        token_masks: torch.tensor, token_context_masks: torch.tensor,
+                       entity_masks: torch.tensor, 
+                       pred_entities: torch.tensor, pred_relations: torch.tensor):   
         
-        return self._forward_train(encoding, context_mask, token_masks, entity_masks, pred_entities, pred_relations)
+        return self._forward_train(encodings, context_masks, token_masks, token_context_masks, entity_masks, pred_entities, pred_relations)
 
 
     def forward(self, *args, evaluate=False, **kwargs):

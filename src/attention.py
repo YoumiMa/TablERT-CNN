@@ -36,30 +36,49 @@ class CR_2DMultiheadAttention(nn.Module):
 
     def forward(self, inputs, attn_mask = None, padding_mask = None):
         
-        def row_2Datt(inputs, padding_mask):
-            max_len = inputs.shape[1]
-            z_row = inputs.reshape(max_len, -1, self.hid_dim)
-            z_row, weights = self.attention(z_row, z_row, z_row, key_padding_mask = padding_mask)
-#             print("weights:", weights)
-            return z_row.view(-1, max_len, max_len, self.hid_dim)
-    
         def col_2Datt(inputs, padding_mask):
-            z_col = inputs.transpose(1,2)
-            z_col= row_2Datt(z_col, padding_mask)
-            z_col = z_col.transpose(1,2)
-            return z_col
+            
+            pad_mask =  padding_mask.unsqueeze(1) * padding_mask.unsqueeze(1).permute(0,2,1)
+            pad_mask += torch.eye(pad_mask.shape[-1], dtype=torch.bool, device = self.device)
+            pad_mask = (~pad_mask).flatten(start_dim=0, end_dim=1)   
+            
+            max_len = inputs.shape[1]
+            z_col = inputs.reshape(max_len, -1, self.hid_dim)
+            z_col, weights = self.attention(z_col, z_col, z_col, key_padding_mask = pad_mask)
+            return z_col.view(-1, max_len, max_len, self.hid_dim), weights
+    
+        def row_2Datt(inputs, padding_mask):
+            
+            z_row = inputs.transpose(1,2)
+            z_row, weights = col_2Datt(z_row, padding_mask)
+            z_row = z_row.transpose(1,2)
+            
+            return z_row, weights
 
+        def diag_att(inputs, padding_mask):
+            
+            batch_size, max_len = inputs.shape[0], inputs.shape[1]
+            z_diag = inputs.flatten(start_dim=1,end_dim=2).transpose(0,1)
+            diag_repr = inputs.diagonal(dim1=1, dim2=2).permute(2,0,1)
+ 
+            z_diag, weights = self.attention(z_diag, diag_repr, diag_repr)
+            return z_diag.view(-1, max_len, max_len, self.hid_dim), weights
+        
         def CR_2Datt(inputs, padding_mask):
-#             print("row attention")
-            z_row = row_2Datt(inputs, padding_mask)
+            
+            
+            z_col, weights_col = col_2Datt(inputs, padding_mask)
 #             print("=" * 20)
-#             print("column attention")
-            z_col = col_2Datt(inputs, padding_mask)
+            z_row, weights_row = row_2Datt(inputs, padding_mask)
 #             print("=" * 20)
-            outputs = (z_col + z_row)/2.
-            return outputs
-        
-        
+#             z_diag, weights_diag = diag_att(inputs, padding_mask)
+    
+            torch.save({'row': weights_row,
+                       'col': weights_col}, 'weights_padded')
+            outputs = z_col
+            
+            return outputs      
+
         z_hat = CR_2Datt(inputs, padding_mask)
         
         return z_hat
@@ -67,7 +86,7 @@ class CR_2DMultiheadAttention(nn.Module):
 
 class TableTransformerLayer(nn.Module):
     
-    def __init__(self, n_heads, input_dim, hid_dim, attn_type, device, dropout=0.1, activation="relu"):
+    def __init__(self, n_heads, input_dim, hid_dim, attn_type, device, dropout=0.3, activation="relu"):
         
         super(TableTransformerLayer, self).__init__()
         
@@ -86,7 +105,6 @@ class TableTransformerLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         
 
-        self.layernorm = nn.LayerNorm(hid_dim)
         self.activation = _get_activation_fn(activation)
         self.attn_type = attn_type
         
@@ -100,7 +118,7 @@ class TableTransformerLayer(nn.Module):
                 src_key_padding_mask: Optional[torch.tensor] = None) -> torch.tensor:
         
         if self.attn_type == "CR":
-            z_hat = self.attn(inputs, padding_mask = src_key_padding_mask)
+            z_hat = self.attn(inputs, padding_mask = src_key_padding_mask, attn_mask = src_mask)
         else:
 #             print("inputs:", inputs.shape)
             z_hat, weights = self.attn(inputs, inputs, inputs)
@@ -113,7 +131,7 @@ class TableTransformerLayer(nn.Module):
         outputs_hat = self.linear2(self.dropout(self.activation(self.linear1(inputs))))
         outputs = inputs + self.dropout2(outputs_hat)
         outputs = self.norm2(outputs)
-#         reporter = MemReporter(self.attn)
+# #         reporter = MemReporter(self.attn)
 #         reporter.report()
         return outputs
 
@@ -131,7 +149,7 @@ class TableTransformer(nn.Module):
         self.num_layers = num_layers
         self.norm = norm
 
-    def forward(self, src: torch.tensor, mask: Optional[torch.tensor] = None, 
+    def forward(self, src: torch.tensor, src_mask: Optional[torch.tensor] = None, 
                 src_key_padding_mask: Optional[torch.tensor] = None) -> torch.tensor:
         """Pass the input through the encoder layers in turn.
 
@@ -146,7 +164,7 @@ class TableTransformer(nn.Module):
         output = src
 
         for mod in self.layers:
-            output = mod(output, src_mask=mask, src_key_padding_mask=src_key_padding_mask)
+            output = mod(output, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask)
 
         if self.norm is not None:
             output = self.norm(output)

@@ -308,12 +308,15 @@ class TableFTrainer(BaseTrainer):
             for batch in tqdm(data_loader, total=total, desc='Evaluate epoch %s' % epoch):
                 # move batch to selected device
                 batch = util.to_device(batch, self._device)
-#                 print([self._tokenizer.convert_ids_to_tokens(encoding) for encoding in batch['encodings']])
+                torch.save([self._tokenizer.decode(encoding, clean_up_tokenization_spaces=False).split() for encoding in batch['encodings']], 'words')
+#                 print(batch['ent_labels'])
+#                 print(batch['rel_labels'])
                 # run model (forward pass)
 #                 entity_labels, rel_labels = align_label(batch['ent_labels'], batch['rel_labels'], batch['start_token_masks'])
 #                 pred_entity_labels, pred_rel_labels = align_label(batch['pred_ent_labels'], batch['pred_rel_labels'], batch['start_token_masks'])
 
-                ent_logits, rel_logits = model(encodings=batch['encodings'], context_masks=batch['ctx_masks'],
+                ent_logits, rel_logits = model(encodings=batch['encodings'],
+                                               context_masks=batch['ctx_masks'],
                                                token_masks=batch['token_masks'],
                                                token_context_masks=batch['token_ctx_masks'],
                                                entity_masks=batch['pred_ent_masks'],

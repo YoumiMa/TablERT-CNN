@@ -65,15 +65,16 @@ class Evaluator:
 
             # select highest score at each cell
             ent_scores, ent_preds = torch.softmax(ent_logits,dim=-1).max(dim=-1)
-            rel_scores, rel_preds = torch.softmax(rel_logits,dim=-1).max(dim=-1)
-#             print(i, ent_preds.shape)
+#             rel_scores, rel_preds = torch.softmax(rel_logits,dim=-1).max(dim=-1)
+    
             pred_entities = self._convert_pred_entities_end(ent_preds, ent_scores, batch['token_ctx_masks'][i], batch['token_masks'][i])         
 
             pred_relations = self._convert_pred_relations_(rel_logits, pred_entities, batch['token_ctx_masks'][i], batch['token_masks'][i])
 
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)    
-    
+#             print("pred:", pred_entities)
+#             print("gold:", self._gt_entities[i])
     
     def compute_scores(self):
 
@@ -264,7 +265,6 @@ class Evaluator:
         backward_labels = [0] + [i for i in range(2, num_labels, 2)]
         forward_logits = pred_logits[:, :, forward_labels]
         backward_logits = pred_logits[:, :, backward_labels]
-
         scores = forward_logits + backward_logits.transpose(0,1)
 #         scores = pred_logits
 #         print("forward:", forward_logits, forward_logits.argmax(dim=0))

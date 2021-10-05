@@ -75,6 +75,7 @@ def create_sample(doc, shuffle = False):
 
     # token masks
     tokens = doc.tokens
+#     token_masks = torch.zeros((context_size, context_size), dtype=torch.bool)
     token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
     token_ctx_mask = torch.zeros(context_size, dtype=torch.bool)
 
