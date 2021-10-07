@@ -33,6 +33,22 @@ class MLPNet(nn.Module):
         x = self.dropout(x)
         return self.fc2(x)
 
+class ConvNet(nn.Module):
+    
+    def __init__(self, input_dim, hid_dim, output_dim, kernel_size=3, stride=1, padding='same', dropout=0.3):
+        super(ConvNet, self).__init__()
+        self.conv1 = nn.Conv2d(input_dim, hid_dim, kernel_size, stride, padding)   
+        self.conv2 = nn.Conv2d(hid_dim, hid_dim, kernel_size, stride, padding)
+        self.conv3 = nn.Conv2d(hid_dim, output_dim, kernel_size, stride, padding)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = self.dropout(x)
+#         x = F.relu(self.conv2(x))
+#         x = self.dropout(x)
+        return self.conv3(x)
+    
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 500):
@@ -99,16 +115,16 @@ class _2DTrans(BertPreTrainedModel):
         encoder_dim = config.hidden_size * 2 
 #         self.mlp = MLPNet(encoder_dim, encoder_embedding)
         
-        self.pos_encoder = PositionalEncoding(d_model = config.hidden_size, dropout = prop_drop)
+#         self.pos_encoder = PositionalEncoding(d_model = config.hidden_size, dropout = prop_drop)
         
-        self.encoder_layers = TableTransformerLayer(n_heads = encoder_heads, input_dim = encoder_dim,  hid_dim = encoder_hidden, attn_type = attn_type, device = device, activation="relu", dropout=prop_drop)
-    
-        
-        self.encoder = TableTransformer(self.encoder_layers, encoder_layers)
+#         self.encoder_layers = TableTransformerLayer(n_heads = encoder_heads, input_dim = encoder_dim,  hid_dim = encoder_hidden, attn_type = attn_type, device = device, activation="relu", dropout=prop_drop)
+            
+#         self.encoder = TableTransformer(self.encoder_layers, encoder_layers)
 #         self.encoder = MLPNet(encoder_dim, encoder_dim)
+        self.encoder = ConvNet(encoder_dim, encoder_hidden, encoder_hidden)
 
-        self.ent_classifier = nn.Linear(encoder_dim, entity_labels)
-        self.rel_classifier = nn.Linear(encoder_dim, relation_labels)
+        self.ent_classifier = nn.Linear(relation_labels, entity_labels)
+#         self.rel_classifier = nn.Linear(encoder_hidden, relation_labels)
         
         self.dropout = nn.Dropout(prop_drop)
         
@@ -163,29 +179,17 @@ class _2DTrans(BertPreTrainedModel):
 #         rel_repr = torch.cat([entry_repr.transpose(1,2), entry_repr, embed_rel], dim=3)
         rel_repr = torch.cat([entry_repr.transpose(1,2), entry_repr], dim=3)
 #         print("rel repr:", rel_repr)
-        encoder_repr = rel_repr
-        
-#         attn_mask = torch.eye(context_size, dtype=torch.bool, device = self.device)
-#         context_mask_2d = token_context_masks.unsqueeze(1) * token_context_masks.unsqueeze(1).permute(0,2,1)
-#         attn_mask = attn_mask.logical_or(~(context_mask_2d))
-#         torch.set_printoptions(edgeitems=20)
+        encoder_repr = self.dropout(rel_repr)
 
-        if self._attn_type != "CR":
-            encoder_repr = encoder_repr.flatten(1,2)
-            attn_mask = token_context_masks.unsqueeze(1) * token_context_masks.unsqueeze(1).permute(0,2,1)
-            attn_mask = attn_mask.flatten()
-
-#         attention = self.encoder(encoder_repr)
-        attention = self.encoder(encoder_repr, src_key_padding_mask = token_context_masks)
-#         attention = self.dropout(rel_repr)
+        attention = self.encoder(encoder_repr.permute(0,3,1,2))
 
         if self._attn_type != "CR":
             attention = attention.view(context_size, context_size, batch_size, -1).permute(2,0,1,3)
 
-        ent_logits = self.ent_classifier(attention.diagonal(dim1=1,dim2=2).transpose(2,1))
+        ent_logits = self.ent_classifier(attention.diagonal(dim1=2,dim2=3).transpose(2,1))
         
-        rel_logits = self.rel_classifier(attention)
-
+        rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
+#         print(ent_logits.shape, rel_logits.shape)
         return ent_logits, rel_logits
 
 

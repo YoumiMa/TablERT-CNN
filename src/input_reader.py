@@ -284,6 +284,7 @@ class JsonInputReader(BaseInputReader):
         relations = []
 #         print("doc_id:", doc_id)
         for jrelation in jrelations:
+#             print(jrelation['type'])
             relation_type = self._relation_types[jrelation['type']]
 
             head_idx = jrelation['head']
