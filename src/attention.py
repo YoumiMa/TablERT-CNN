@@ -44,7 +44,7 @@ class CR_2DMultiheadAttention(nn.Module):
             
             max_len = inputs.shape[1]
             z_col = inputs.reshape(max_len, -1, self.hid_dim)
-            z_col, weights = self.attention(z_col, z_col, z_col, key_padding_mask = pad_mask)
+            z_col, weights = self.attention(z_col, z_col, z_col)
             return z_col.view(-1, max_len, max_len, self.hid_dim), weights
     
         def row_2Datt(inputs, padding_mask):
@@ -75,7 +75,7 @@ class CR_2DMultiheadAttention(nn.Module):
     
             torch.save({'row': weights_row,
                        'col': weights_col}, 'weights_padded')
-            outputs = z_col
+            outputs = (z_col + z_row) / 2.
             
             return outputs      
 

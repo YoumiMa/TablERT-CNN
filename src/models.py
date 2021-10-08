@@ -117,14 +117,14 @@ class _2DTrans(BertPreTrainedModel):
         
 #         self.pos_encoder = PositionalEncoding(d_model = config.hidden_size, dropout = prop_drop)
         
-#         self.encoder_layers = TableTransformerLayer(n_heads = encoder_heads, input_dim = encoder_dim,  hid_dim = encoder_hidden, attn_type = attn_type, device = device, activation="relu", dropout=prop_drop)
+        self.encoder_layers = TableTransformerLayer(n_heads = encoder_heads, input_dim = encoder_dim,  hid_dim = encoder_hidden, attn_type = attn_type, device = device, activation="relu", dropout=prop_drop)
             
-#         self.encoder = TableTransformer(self.encoder_layers, encoder_layers)
+        self.encoder = TableTransformer(self.encoder_layers, encoder_layers)
 #         self.encoder = MLPNet(encoder_dim, encoder_dim)
-        self.encoder = ConvNet(encoder_dim, encoder_hidden, encoder_hidden)
+#         self.encoder = ConvNet(encoder_dim, encoder_hidden, encoder_hidden)
 
-        self.ent_classifier = nn.Linear(relation_labels, entity_labels)
-#         self.rel_classifier = nn.Linear(encoder_hidden, relation_labels)
+        self.ent_classifier = nn.Linear(encoder_dim, entity_labels)
+        self.rel_classifier = nn.Linear(encoder_dim, relation_labels)
         
         self.dropout = nn.Dropout(prop_drop)
         
@@ -181,14 +181,14 @@ class _2DTrans(BertPreTrainedModel):
 #         print("rel repr:", rel_repr)
         encoder_repr = self.dropout(rel_repr)
 
-        attention = self.encoder(encoder_repr.permute(0,3,1,2))
+        attention = self.encoder(encoder_repr, src_key_padding_mask = token_context_masks)
 
         if self._attn_type != "CR":
             attention = attention.view(context_size, context_size, batch_size, -1).permute(2,0,1,3)
 
-        ent_logits = self.ent_classifier(attention.diagonal(dim1=2,dim2=3).transpose(2,1))
+        ent_logits = self.ent_classifier(attention.diagonal(dim1=1,dim2=2).transpose(2,1))
         
-        rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
+        rel_logits = self.rel_classifier(attention)
 #         print(ent_logits.shape, rel_logits.shape)
         return ent_logits, rel_logits
 
