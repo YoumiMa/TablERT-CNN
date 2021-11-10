@@ -2,10 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from transformers import BertConfig, AlbertConfig
-from transformers import BertModel, AlbertModel
-from transformers import BertPreTrainedModel, AlbertPreTrainedModel
-from transformers import BertTokenizer, AlbertTokenizer
+from transformers import AutoModel, AutoTokenizer, AutoConfig, BertPreTrainedModel
 
 
 from src import sampling
@@ -22,7 +19,7 @@ from pytorch_memlab import profile, MemReporter
 import math
 
 class MLPNet(nn.Module):
-    def __init__(self, input_dim, output_dim, hid_dim=512, dropout=0.3):
+    def __init__(self, input_dim, output_dim, hid_dim=512, dropout=0.):
         super(MLPNet, self).__init__()
         self.fc1 = nn.Linear(input_dim, hid_dim)   
         self.fc2 = nn.Linear(hid_dim, output_dim)
@@ -40,7 +37,7 @@ class ConvNet(nn.Module):
         self.conv1 = nn.Conv2d(input_dim, hid_dim, kernel_size, stride, padding)   
         self.conv2 = nn.Conv2d(hid_dim, hid_dim, kernel_size, stride, padding)
         self.conv3 = nn.Conv2d(hid_dim, output_dim, kernel_size, stride, padding)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = nn.Dropout2d(dropout)
         
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -77,7 +74,6 @@ class _2DTrans(BertPreTrainedModel):
     
     Params:
     :config: configuration for pretrained BERT;
-    :tokenizer: pretraind BERT tokenizer;
     :relation_labels: number of relation labels;
     :entity_labels: number of entity labels;
     :entity_label_embedding: dimension of NE label embedding;
@@ -88,17 +84,15 @@ class _2DTrans(BertPreTrainedModel):
     
     """
 
-    def __init__(self, config: BertConfig, tokenizer: BertTokenizer,
-                 entity_labels: int, relation_labels: int,
+    def __init__(self, config: AutoConfig, entity_labels: int, relation_labels: int,
                  entity_label_embedding: int,  rel_label_embedding: int,
                  pos_embedding: int, encoder_embedding: int, encoder_hidden: int,
                  encoder_heads: int, encoder_layers: int, attn_type: str,
                  prop_drop: float, freeze_transformer: bool, device):
+        
         super(_2DTrans, self).__init__(config)
-
         # BERT model
-        self.bert = BertModel(config)
-        self._tokenizer = tokenizer
+        self.bert = AutoModel.from_config(config)
         
         self._device = device
         self._attn_type = attn_type
@@ -121,7 +115,7 @@ class _2DTrans(BertPreTrainedModel):
             
 #         self.encoder = TableTransformer(self.encoder_layers, encoder_layers)
 #         self.encoder = MLPNet(encoder_dim, encoder_dim)
-        self.encoder = ConvNet(encoder_dim, encoder_hidden, encoder_hidden)
+        self.encoder = ConvNet(encoder_dim, encoder_hidden, relation_labels)
 
         self.ent_classifier = nn.Linear(relation_labels, entity_labels)
 #         self.rel_classifier = nn.Linear(encoder_hidden, relation_labels)
@@ -130,7 +124,7 @@ class _2DTrans(BertPreTrainedModel):
         
         self._entity_labels = entity_labels
         self._relation_labels = relation_labels
-        
+
         # weight initialization
         self.init_weights()
 
@@ -183,19 +177,18 @@ class _2DTrans(BertPreTrainedModel):
 
         attention = self.encoder(encoder_repr.permute(0,3,1,2))
 
-        if self._attn_type != "CR":
-            attention = attention.view(context_size, context_size, batch_size, -1).permute(2,0,1,3)
 
         ent_logits = self.ent_classifier(attention.diagonal(dim1=2,dim2=3).transpose(2,1))
         
-        rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
+#         rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
+        rel_logits = attention.permute(0,2,3,1)
 #         print(ent_logits.shape, rel_logits.shape)
         return ent_logits, rel_logits
 
 
     def _forward_train(self, encodings: torch.tensor, context_masks: torch.tensor, 
                         token_masks: torch.tensor, token_context_masks: torch.tensor,
-                       entity_masks: torch.tensor, 
+                       entity_masks: torch.tensor, bert_layer: int,
                        pred_entities: torch.tensor, pred_relations: torch.tensor):  
         
         ''' Forward step for training.
@@ -217,7 +210,9 @@ class _2DTrans(BertPreTrainedModel):
         '''
         
         # get contextualized token embeddings from last transformer layer
-        h = self.bert(input_ids=encodings, attention_mask=context_masks.float())['last_hidden_state']
+        outputs = self.bert(input_ids=encodings, attention_mask=context_masks.float())
+        last_hidden = outputs[0]
+        h = outputs[-1][bert_layer]
         
         token_spans_pool = util.max_pooling(h, token_masks)
 
@@ -254,10 +249,10 @@ class _2DTrans(BertPreTrainedModel):
     
     def _forward_eval(self, encodings: torch.tensor, context_masks: torch.tensor, 
                         token_masks: torch.tensor, token_context_masks: torch.tensor,
-                       entity_masks: torch.tensor, 
+                       entity_masks: torch.tensor, bert_layer: int,
                        pred_entities: torch.tensor, pred_relations: torch.tensor):   
         
-        return self._forward_train(encodings, context_masks, token_masks, token_context_masks, entity_masks, pred_entities, pred_relations)
+        return self._forward_train(encodings, context_masks, token_masks, token_context_masks, entity_masks, bert_layer, pred_entities, pred_relations)
 
 
     def forward(self, *args, evaluate=False, **kwargs):

@@ -10,9 +10,8 @@ from torch.optim import Optimizer
 import transformers
 from torch.utils.data import DataLoader
 
-from transformers import AdamW, BertConfig
-from transformers import BertTokenizer
-from transformers import AlbertTokenizer, AlbertModel
+from transformers import AdamW
+from transformers import AutoTokenizer, AutoConfig, AutoModel
 
 from src import models
 from src.entities import Dataset
@@ -59,13 +58,8 @@ class TableFTrainer(BaseTrainer):
         super().__init__(args)
 
         # byte-pair encoding
-        if 'albert' in args.tokenizer_path:
-            self._tokenizer = AlbertTokenizer.from_pretrained(args.tokenizer_path,
+        self._tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path,
                                                              cache_dir=args.cache_path)
-        else:
-            self._tokenizer = BertTokenizer.from_pretrained(args.tokenizer_path,
-                                                            do_lower_case=args.lowercase,
-                                                            cache_dir=args.cache_path)
         
 
         # path to export relation extraction examples to
@@ -210,25 +204,24 @@ class TableFTrainer(BaseTrainer):
         
     def _load_model(self, input_reader):
         model_class = models.get_model(self.args.model_type)
-        
-        config = BertConfig.from_pretrained(self.args.model_path, cache_dir=self.args.cache_path)
+
+        config = AutoConfig.from_pretrained(self.args.model_path, cache_dir=self.args.cache_path, output_hidden_states=True)
         
         # load model
         model = model_class.from_pretrained(self.args.model_path,
-                                            cache_dir = self.args.cache_path,
-                                            tokenizer = self._tokenizer,
+                                            config = config,
                                             # src model parameters
                                             entity_labels = input_reader.entity_label_count,
                                             relation_labels = input_reader.relation_label_count,
-                                            rel_label_embedding = self.args.rel_label_embedding,
-                                            prop_drop = self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
+                                            rel_label_embedding = self.args.rel_label_embedding,
                                             pos_embedding = self.args.pos_embedding,
                                             encoder_embedding = self.args.encoder_embedding,
                                             encoder_hidden = self.args.encoder_hidden,
                                             encoder_heads = self.args.encoder_heads,
                                             encoder_layers = self.args.encoder_layers,
                                             attn_type = self.args.attn_type,
+                                            prop_drop = self.args.prop_drop,
                                             freeze_transformer=self.args.freeze_transformer,
                                             device=self._device)
         return model
@@ -265,6 +258,7 @@ class TableFTrainer(BaseTrainer):
                                            token_masks=batch['token_masks'],
                                            token_context_masks=batch['token_ctx_masks'], 
                                            entity_masks=batch['pred_ent_masks'],
+                                           bert_layer = self.args.bert_layer,
                                            pred_entities=batch['pred_ent_labels'],
                                            pred_relations=batch['pred_rel_labels'])
 
@@ -320,6 +314,7 @@ class TableFTrainer(BaseTrainer):
                                                token_masks=batch['token_masks'],
                                                token_context_masks=batch['token_ctx_masks'],
                                                entity_masks=batch['pred_ent_masks'],
+                                               bert_layer = self.args.bert_layer,
                                                pred_entities=batch['pred_ent_labels'],
                                                pred_relations=batch['pred_rel_labels'])
 

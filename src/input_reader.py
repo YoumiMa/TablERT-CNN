@@ -5,7 +5,7 @@ from logging import Logger
 from typing import Iterable, List
 
 from tqdm import tqdm
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 
 from src import util
 from src.entities import Dataset, EntityLabel, RelationLabel, EntityType, RelationType, Entity, Relation, Document
@@ -15,7 +15,7 @@ E_PREFIX = ['B-', 'U-', 'I-', 'L-']
 R_PREFIX = ['R-', 'L-'] # relation Pointing to left/right
 
 class BaseInputReader(ABC):
-    def __init__(self, types_path: str, tokenizer: BertTokenizer, logger: Logger = None):
+    def __init__(self, types_path: str, tokenizer: AutoTokenizer, logger: Logger = None):
         # entity + relation types in general, i.e., without prefix
         types = json.load(open(types_path), object_pairs_hook=OrderedDict) 
         
@@ -172,7 +172,7 @@ class BaseInputReader(ABC):
 
 
 class JsonInputReader(BaseInputReader):
-    def __init__(self, labels_path: str, tokenizer: BertTokenizer, logger: Logger = None):
+    def __init__(self, labels_path: str, tokenizer: AutoTokenizer, logger: Logger = None):
         super().__init__(labels_path, tokenizer, logger)
 
     def read(self, dataset_path, dataset_label):
