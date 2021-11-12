@@ -37,6 +37,7 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--encoder_layers', type=int, default=3, help="Number of encoder layers")    
     arg_parser.add_argument('--attn_type', type=str, default="WC", help="Type of encoder self attention")    
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used throughout the model")
+    arg_parser.add_argument('--bert_layer', type=int, default=12, help="Bert layer to use (0 for embedding, 12 for the last layer)")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
     arg_parser.add_argument('--beam_size', type=int, default=1, help="Beam size for decoding")
 

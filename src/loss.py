@@ -32,6 +32,7 @@ class TableLoss(Loss):
 #         entity_masks = entity_masks.view(-1).float()
         entity_loss = self._entity_criterion(entity_logits, entity_labels)
         
+#         print(rel_labels.shape, rel_logits.shape)
         rel_loss = self._rel_criterion(rel_logits.permute(0,3,1,2), rel_labels)
 #         print((ctx_masks.unsqueeze(1) * ctx_masks.unsqueeze(1).permute(0,2,1)).long())
 

@@ -7,7 +7,7 @@ import torch.nn as nn
 
 import math, codecs, json
 from sklearn.metrics import precision_recall_fscore_support as prfs
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 
 from src.entities import Document, Dataset, EntityLabel, EntityType
 from src.input_reader import JsonInputReader
@@ -20,7 +20,7 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 class Evaluator:
-    def __init__(self, dataset: Dataset, input_reader: JsonInputReader, text_encoder: BertTokenizer,
+    def __init__(self, dataset: Dataset, input_reader: JsonInputReader, text_encoder: AutoTokenizer,
                  model_type: str, example_count: int, example_path: str, 
                  epoch: int, dataset_label: str, max_epoch: int = 0):
         self._text_encoder = text_encoder
@@ -66,7 +66,7 @@ class Evaluator:
             # select highest score at each cell
             ent_scores, ent_preds = torch.softmax(ent_logits,dim=-1).max(dim=-1)
 #             rel_scores, rel_preds = torch.softmax(rel_logits,dim=-1).max(dim=-1)
-    
+#             print(batch['ent_labels'], ent_preds)
             pred_entities = self._convert_pred_entities_end(ent_preds, ent_scores, batch['token_ctx_masks'][i], batch['token_masks'][i])         
 
             pred_relations = self._convert_pred_relations_(rel_logits, pred_entities, batch['token_ctx_masks'][i], batch['token_masks'][i])
