@@ -222,7 +222,6 @@ class JsonInputReader(BaseInputReader):
 #             return dataset._documents[doc_id]._tokens, dataset._documents[doc_id].encoding
         # full document encoding including special tokens ([CLS] and [SEP]) and byte-pair encodings of original tokens
         doc_encoding = [self._tokenizer.convert_tokens_to_ids('[CLS]')]
-
         # parse tokens
         for i, token_phrase in enumerate(jtokens):
             token_encoding = self._tokenizer.encode(token_phrase, add_special_tokens=False)

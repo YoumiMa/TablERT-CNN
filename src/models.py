@@ -215,6 +215,8 @@ class _2DTrans(BertPreTrainedModel):
         h = outputs[-1][bert_layer]
         
         token_spans_pool = util.max_pooling(h, token_masks)
+        
+#         token_spans_pool = glove.get_embeddings(encodings)
 
         entity_logits, rel_logits = self._forward_table(token_spans_pool, token_context_masks, entity_masks, pred_entities, pred_relations)
 

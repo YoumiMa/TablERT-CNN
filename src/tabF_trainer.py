@@ -11,7 +11,7 @@ import transformers
 from torch.utils.data import DataLoader
 
 from transformers import AdamW
-from transformers import AutoTokenizer, AutoConfig, AutoModel
+from transformers import AutoTokenizer, AutoConfig, AutoModel, BertTokenizer
 
 from src import models
 from src.entities import Dataset
@@ -57,9 +57,10 @@ class TableFTrainer(BaseTrainer):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
 
+
         # byte-pair encoding
         self._tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path,
-                                                             cache_dir=args.cache_path)
+                                                                 cache_dir=args.cache_path)
         
 
         # path to export relation extraction examples to
