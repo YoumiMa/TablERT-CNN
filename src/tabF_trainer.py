@@ -217,7 +217,6 @@ class TableFTrainer(BaseTrainer):
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             rel_label_embedding = self.args.rel_label_embedding,
                                             pos_embedding = self.args.pos_embedding,
-                                            encoder_embedding = self.args.encoder_embedding,
                                             encoder_hidden = self.args.encoder_hidden,
                                             encoder_heads = self.args.encoder_heads,
                                             encoder_layers = self.args.encoder_layers,
