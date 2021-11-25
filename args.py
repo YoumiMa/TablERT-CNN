@@ -31,7 +31,6 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
     arg_parser.add_argument('--pos_embedding', type=int, default=50, help="Dimensionality of relative position embedding")
 
-    arg_parser.add_argument('--encoder_embedding', type=int, default=300, help="Dimensionality of encoder embedding")
     arg_parser.add_argument('--encoder_hidden', type=int, default=100, help="Dimensionality of encoder hidden embedding")
     arg_parser.add_argument('--encoder_heads', type=int, default=6, help="Number of encoder heads")
     arg_parser.add_argument('--encoder_layers', type=int, default=3, help="Number of encoder layers")    

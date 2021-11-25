@@ -130,15 +130,16 @@ class _2DTrans(BertPreTrainedModel):
         
         # entity span repr.
         entry_repr = h
+        entry_repr[entry_repr == -1e30] = 0
         entry_repr = entry_repr.unsqueeze(1).repeat(1, h.shape[1], 1, 1)
         
         rel_repr = torch.cat([entry_repr.transpose(1,2), entry_repr], dim=3)
         encoder_repr = self.dropout(rel_repr)
 
-        attention = self.encoder(encoder_repr, src_key_padding_mask = token_context_masks)
+        attention = self.encoder(encoder_repr.permute(0,3,1,2))
 
 
-        ent_logits = self.ent_classifier(attention.diagonal(dim1=1,dim2=2).transpose(2,1))
+        ent_logits = self.ent_classifier(attention.diagonal(dim1=2,dim2=3).transpose(2,1))
         
 #         rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
         rel_logits = attention.permute(0,2,3,1)
