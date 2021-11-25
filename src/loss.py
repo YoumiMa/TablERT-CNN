@@ -39,10 +39,10 @@ class TableLoss(Loss):
 #         print("pre rel:", rel_logits.argmax(dim=-1) * (ctx_masks.unsqueeze(1) * ctx_masks.unsqueeze(1).permute(0,2,1)))
         # no diagonal
         rel_loss = rel_loss * (~torch.eye(rel_loss.shape[-1], dtype=torch.bool, device=self._device))
-         
-        entity_loss = entity_loss.sum()
+        
+        entity_loss = entity_loss[ctx_masks.view(-1)].sum()
         # context mask
-        rel_loss = rel_loss.sum()
+        rel_loss = rel_loss[ctx_masks.unsqueeze(1) * ctx_masks.unsqueeze(1).permute(0,2,1)].sum()
 
         train_loss = entity_loss + rel_loss
 
