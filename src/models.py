@@ -22,28 +22,31 @@ class MLPNet(nn.Module):
     def __init__(self, input_dim, output_dim, hid_dim=512, dropout=0.):
         super(MLPNet, self).__init__()
         self.fc1 = nn.Linear(input_dim, hid_dim)   
-        self.fc2 = nn.Linear(hid_dim, output_dim)
+        self.fc2 = nn.Linear(hid_dim, hid_dim)
+        self.fc3 = nn.Linear(hid_dim, output_dim)
         self.dropout = nn.Dropout(dropout)
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        return self.fc2(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        return self.fc3(x)
 
 class ConvNet(nn.Module):
     
     def __init__(self, input_dim, hid_dim, output_dim, kernel_size=3, stride=1, padding='same', dropout=0.3):
         super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(input_dim, hid_dim, kernel_size, stride, padding)   
-        self.conv2 = nn.Conv2d(hid_dim, hid_dim, kernel_size, stride, padding)
-        self.conv3 = nn.Conv2d(hid_dim, output_dim, kernel_size, stride, padding)
+        self.conv1 = nn.Conv2d(input_dim, input_dim, kernel_size, stride, padding, groups=input_dim)   
+        self.conv2 = nn.Conv2d(input_dim, hid_dim, 1, stride, padding)
+        self.conv3 = nn.Conv2d(hid_dim, output_dim, 1, stride, padding)
         self.dropout = nn.Dropout2d(dropout)
         
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = self.dropout(x)
-#         x = F.relu(self.conv2(x))
-#         x = self.dropout(x)
+        x = F.relu(self.conv2(x))
+        x = self.dropout(x)
         return self.conv3(x)
     
 class PositionalEncoding(nn.Module):
@@ -86,8 +89,7 @@ class _2DTrans(BertPreTrainedModel):
 
     def __init__(self, config: AutoConfig, entity_labels: int, relation_labels: int,
                  entity_label_embedding: int,  rel_label_embedding: int,
-                 pos_embedding: int, encoder_hidden: int,
-                 encoder_heads: int, encoder_layers: int, attn_type: str,
+                 encoder_hidden: int, encoder_output: int, kernel_size: int,
                  prop_drop: float, freeze_transformer: bool, device):
         
         super(_2DTrans, self).__init__(config)
@@ -95,7 +97,6 @@ class _2DTrans(BertPreTrainedModel):
         self.bert = AutoModel.from_config(config)
         
         self._device = device
-        self._attn_type = attn_type
         
         # Encoder
         encoder_dim = config.hidden_size * 2 
@@ -103,6 +104,7 @@ class _2DTrans(BertPreTrainedModel):
         self.encoder = ConvNet(encoder_dim, encoder_hidden, relation_labels)
 
         self.ent_classifier = nn.Linear(relation_labels, entity_labels)
+        # self.rel_classifier = nn.Linear(encoder_output, relation_labels)
         
         self.dropout = nn.Dropout(prop_drop)
         
@@ -121,12 +123,8 @@ class _2DTrans(BertPreTrainedModel):
 
 
 
-    def _forward_table(self, h: torch.tensor, token_context_masks: torch.tensor,
-                       entity_masks: torch.tensor, entity_preds: torch.tensor, rel_preds: torch.tensor):
+    def _forward_table(self, h: torch.tensor, token_context_masks: torch.tensor):
         
-        entity_labels = entity_preds
-        
-        batch_size, context_size = entity_labels.shape
         
         # entity span repr.
         entry_repr = h
@@ -141,7 +139,7 @@ class _2DTrans(BertPreTrainedModel):
 
         ent_logits = self.ent_classifier(attention.diagonal(dim1=2,dim2=3).transpose(2,1))
         
-#         rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
+        # rel_logits = self.rel_classifier(attention.permute(0,2,3,1))
         rel_logits = attention.permute(0,2,3,1)
     
 #         print(ent_logits.shape, rel_logits.shape)
@@ -150,8 +148,7 @@ class _2DTrans(BertPreTrainedModel):
 
     def _forward_train(self, encodings: torch.tensor, context_masks: torch.tensor, 
                         token_masks: torch.tensor, token_context_masks: torch.tensor,
-                       entity_masks: torch.tensor, bert_layer: int,
-                       pred_entities: torch.tensor, pred_relations: torch.tensor):  
+                       bert_layer: int):  
         
         ''' Forward step for training.
         
@@ -177,7 +174,7 @@ class _2DTrans(BertPreTrainedModel):
         h = outputs[-1][bert_layer]
         
         token_spans_pool = util.max_pooling(h, token_masks)
-        entity_logits, rel_logits = self._forward_table(token_spans_pool, token_context_masks, entity_masks, pred_entities, pred_relations)
+        entity_logits, rel_logits = self._forward_table(token_spans_pool, token_context_masks)
 
 
         return entity_logits, rel_logits
@@ -185,10 +182,9 @@ class _2DTrans(BertPreTrainedModel):
     
     def _forward_eval(self, encodings: torch.tensor, context_masks: torch.tensor, 
                         token_masks: torch.tensor, token_context_masks: torch.tensor,
-                       entity_masks: torch.tensor, bert_layer: int,
-                       pred_entities: torch.tensor, pred_relations: torch.tensor):   
+                       entity_masks: torch.tensor, bert_layer: int):   
         
-        return self._forward_train(encodings, context_masks, token_masks, token_context_masks, entity_masks, bert_layer, pred_entities, pred_relations)
+        return self._forward_train(encodings, context_masks, token_masks, token_context_masks,  bert_layer)
 
 
     def forward(self, *args, evaluate=False, **kwargs):

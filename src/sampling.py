@@ -57,11 +57,8 @@ def create_sample(doc, shuffle = False):
     ent_labels, ent_masks = collect_entities(doc.entities, context_size, token_count)
 #     print("entity labels:", ent_labels)
 #     print("masks:", ent_masks)
-
-    pred_ent_labels, pred_ent_masks = collect_entities(doc.pred_entities, context_size, token_count)
     
     rel_labels = collect_rels(doc.relations, context_size)
-    pred_rel_labels = collect_rels(doc.pred_relations, context_size)
     
     # create tensors
     # token indices
@@ -89,9 +86,7 @@ def create_sample(doc, shuffle = False):
 
 #     print("entity mask:", ent_masks, ent_masks.shape)
     return dict(encodings=encoding, ctx_masks=ctx_mask, ent_masks=ent_masks,
-                            ent_labels=ent_labels, pred_ent_masks=pred_ent_masks,
-                            pred_ent_labels=pred_ent_labels, 
-                            rel_labels=rel_labels, pred_rel_labels=pred_rel_labels,
+                            ent_labels=ent_labels, rel_labels=rel_labels, 
                             token_masks=token_masks, token_ctx_masks=token_ctx_mask)
 
 

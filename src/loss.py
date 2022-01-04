@@ -47,7 +47,7 @@ class TableLoss(Loss):
         train_loss = entity_loss + rel_loss
 
         loss = torch.tensor([entity_loss.item(), rel_loss.item(), train_loss.item()])
-#         print("loss:", loss)
+        # print("loss:", entity_loss, rel_loss)
         if not is_eval:
 #             print(torch.cuda.memory_summary())
             train_loss.backward()

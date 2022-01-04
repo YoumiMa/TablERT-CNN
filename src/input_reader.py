@@ -191,8 +191,6 @@ class JsonInputReader(BaseInputReader):
         jtokens = doc['tokens']
         jrelations = doc['relations']
         jtags = doc['tags']
-        pred_jrelations = doc['pred_relations']
-        pred_jtags = doc['pred_tags']
         doc_id = doc['orig_id']
         
 #         print("doc_id:", doc_id)
@@ -201,14 +199,12 @@ class JsonInputReader(BaseInputReader):
 
         # parse entity mentions
         entities = self._parse_entities(jtags, doc_tokens, dataset)
-        pred_entities = self._parse_pred_entities(pred_jtags, doc_tokens, dataset)
 
         # parse relations
         relations = self._parse_relations(jrelations, entities, dataset)
-        pred_relations = self._parse_pred_relations(pred_jrelations, pred_entities, dataset)
 
         # create document
-        document = dataset.create_document(doc_tokens, entities, relations, pred_entities, pred_relations, doc_encoding)
+        document = dataset.create_document(doc_tokens, entities, relations, doc_encoding)
         
         if len(doc_encoding) > self._context_size:
             self._context_size = len(doc_encoding)
@@ -254,29 +250,6 @@ class JsonInputReader(BaseInputReader):
 
         return entities
 
-    def _parse_pred_entities(self, jpreds, doc_tokens, dataset) -> List[Entity]:
-        
-        entities = []
-        entity_labels = []
-
-        for idx, jpred in enumerate(jpreds):
-            if not jpred.startswith('O'): # skip non-entities
-                entity_labels.append(self._entity_labels[jpred])
-                if jpred.startswith('B') or jpred.startswith('U'):
-                    start = idx
-                if jpred.startswith('U') or jpred.startswith('L'):
-                    entity_type = self._entity_types[jpred[2:]]
-                    end = idx + 1
-                    tokens = doc_tokens[start:end]
-                    phrase = " ".join([t.phrase for t in tokens])
-                    entity = dataset.create_pred_entity(entity_type, entity_labels, tokens, phrase)
-                    entities.append(entity)
-                    entity_labels = []
-                    start = idx + 1
-            else:
-                start = idx + 1
-
-        return entities
 
 
     def _parse_relations(self, jrelations, entities, dataset) -> List[Relation]:
@@ -298,21 +271,4 @@ class JsonInputReader(BaseInputReader):
 
         return relations
 
-
-    def _parse_pred_relations(self, jrelations, entities, dataset) -> List[Relation]:
-        relations = []
-
-        for jrelation in jrelations:
-            relation_type = self._relation_types[jrelation['type']]
-
-            head_idx = jrelation['head']
-            tail_idx = jrelation['tail']
-            
-            # create relation
-            head = entities[head_idx]
-            tail = entities[tail_idx]
-                
-            relation = dataset.create_pred_relation(relation_type, head_entity=head, tail_entity=tail)
-            relations.append(relation)
-
-        return relations
+    

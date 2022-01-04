@@ -357,16 +357,13 @@ class Relation:
 
 class Document:
     def __init__(self, doc_id: str, tokens: List[Token], 
-                entities: List[Entity], relations: List[Relation],
-                pred_entities: List[Entity], pred_relations: List[Relation],                
+                entities: List[Entity], relations: List[Relation],              
                  encoding: List[int]):
         self._doc_id = doc_id  # ID within the corresponding dataset
 
         self._tokens = tokens
         self._entities = entities
         self._relations = relations
-        self._pred_entities = pred_entities
-        self._pred_relations = pred_relations
 
         # byte-pair document encoding including special tokens ([CLS] and [SEP])
         self._encoding = encoding
@@ -384,17 +381,6 @@ class Document:
                 self.relations.append(r)
         return
 
-    def update_pred_entities(self, pred_entities):
-        for e in pred_entities:
-            if e not in self.pred_entities:
-                self.pred_entities.append(e)
-        return
-    
-    def update_pred_relations(self,pred_relations):
-        for r in pred_relations:
-            if r not in self.pred_relations:
-                self.pred_relations.append(r)
-        return
     
 
     @property
@@ -408,14 +394,6 @@ class Document:
     @property
     def relations(self):
         return self._relations
-
-    @property
-    def pred_entities(self):
-        return self._pred_entities
-
-    @property
-    def pred_relations(self):
-        return self._pred_relations
 
     @property
     def tokens(self):
@@ -479,15 +457,11 @@ class Dataset(TorchDataset):
         self._documents = OrderedDict()
         self._entities = OrderedDict()
         self._relations = OrderedDict()
-        self._pred_entities = OrderedDict()
-        self._pred_relations = OrderedDict()
 
         # current ids
         self._doc_id = 0
         self._rid = 0
         self._eid = 0
-        self._prid = 0 # predicted
-        self._peid = 0 # predicted
         self._tid = 0
 
         # max sentence length
@@ -514,14 +488,6 @@ class Dataset(TorchDataset):
         self._eid += 1
             
         return mention
-    
-    def create_pred_entity(self, entity_type, entity_labels, tokens, phrase) -> Entity:
-        
-        mention = Entity(self._peid, entity_type, entity_labels, tokens, phrase)
-        self._entities[self._peid] = mention
-        self._peid += 1
-        
-        return mention
 
 
     def create_relation(self, relation_type, head_entity, tail_entity, reverse=False) -> Relation:        
@@ -531,16 +497,10 @@ class Dataset(TorchDataset):
         self._rid += 1
         return relation
     
-    def create_pred_relation(self, relation_type, head_entity, tail_entity, reverse=False) -> Relation:
-            
-        relation = Relation(self._prid, relation_type, head_entity, tail_entity, reverse)
-        self._pred_relations[self._prid] = relation
-        self._prid += 1
-        return relation
 
-    def create_document(self, tokens, entity_mentions, relations, pred_entity_mentions, pred_relations, doc_encoding) -> Document:
+    def create_document(self, tokens, entity_mentions, relations, doc_encoding) -> Document:
             
-        document = Document(self._doc_id, tokens, entity_mentions, relations,  pred_entity_mentions, pred_relations, doc_encoding)
+        document = Document(self._doc_id, tokens, entity_mentions, relations, doc_encoding)
         self._documents[self._doc_id] = document
         self._doc_id += 1
         
@@ -583,13 +543,6 @@ class Dataset(TorchDataset):
     def relations(self):
         return list(self._relations.values())
     
-    @property
-    def pred_entities(self):
-        return list(self._pred_entities.values())
-
-    @property
-    def pred_relations(self):
-        return list(self._pred_relations.values())
 
     @property
     def document_count(self):

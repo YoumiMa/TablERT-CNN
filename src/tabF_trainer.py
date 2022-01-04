@@ -216,11 +216,9 @@ class TableFTrainer(BaseTrainer):
                                             relation_labels = input_reader.relation_label_count,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             rel_label_embedding = self.args.rel_label_embedding,
-                                            pos_embedding = self.args.pos_embedding,
                                             encoder_hidden = self.args.encoder_hidden,
-                                            encoder_heads = self.args.encoder_heads,
-                                            encoder_layers = self.args.encoder_layers,
-                                            attn_type = self.args.attn_type,
+                                            encoder_output = self.args.encoder_output,
+                                            kernel_size = self.args.kernel_size,
                                             prop_drop = self.args.prop_drop,
                                             freeze_transformer=self.args.freeze_transformer,
                                             device=self._device)
@@ -257,10 +255,7 @@ class TableFTrainer(BaseTrainer):
             ent_logits, rel_logits = model(encodings=batch['encodings'], context_masks=batch['ctx_masks'],
                                            token_masks=batch['token_masks'],
                                            token_context_masks=batch['token_ctx_masks'], 
-                                           entity_masks=batch['pred_ent_masks'],
-                                           bert_layer = self.args.bert_layer,
-                                           pred_entities=batch['pred_ent_labels'],
-                                           pred_relations=batch['pred_rel_labels'])
+                                           bert_layer = self.args.bert_layer)
 
             loss = compute_loss.compute(ent_logits, batch['ent_labels'], rel_logits, batch['rel_labels'], batch['token_ctx_masks']) 
 
@@ -313,10 +308,7 @@ class TableFTrainer(BaseTrainer):
                                                context_masks=batch['ctx_masks'],
                                                token_masks=batch['token_masks'],
                                                token_context_masks=batch['token_ctx_masks'],
-                                               entity_masks=batch['pred_ent_masks'],
-                                               bert_layer = self.args.bert_layer,
-                                               pred_entities=batch['pred_ent_labels'],
-                                               pred_relations=batch['pred_rel_labels'])
+                                               bert_layer = self.args.bert_layer)
 
                 loss = compute_loss.compute(ent_logits, batch['ent_labels'], rel_logits, batch['rel_labels'], batch['token_ctx_masks'], is_eval=True) 
 

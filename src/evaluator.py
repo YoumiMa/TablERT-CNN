@@ -49,7 +49,6 @@ class Evaluator:
         self._pseudo_entity_type = EntityType([self._pseudo_entity_label], 1, 'Entity', 'Entity')  # for span only evaluation
 
         self._convert_gt(self._dataset.documents)
-        self._convert_prev_pred(self._dataset.documents)
         
 
 
@@ -169,17 +168,7 @@ class Evaluator:
             sample_gt_entities = [entity.as_tuple_span() for entity in gt_entities]
             self._gt_relations.append(sample_gt_relations)
             self._gt_entities.append(sample_gt_entities)
-
-    def _convert_prev_pred(self, docs: List[Document]):
-        for doc in docs:
-            pred_relations = doc.pred_relations
-            pred_entities = doc.pred_entities
-
-            # convert ground truth relations and entities for precision/recall/f1 evaluation
-            sample_pred_relations = [rel.as_tuple() for rel in pred_relations]
-            sample_pred_entities = [entity.as_tuple_span() for entity in pred_entities]
-            self._prev_pred_relations.append(sample_pred_relations)
-            self._prev_pred_entities.append(sample_pred_entities)        
+    
         
         
     def _convert_pred_entities_end(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
