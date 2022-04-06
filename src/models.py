@@ -37,16 +37,16 @@ class ConvNet(nn.Module):
     
     def __init__(self, input_dim, hid_dim, output_dim, kernel_size=3, stride=1, padding='same', dropout=0.3):
         super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(input_dim, input_dim, kernel_size, stride, padding, groups=input_dim)   
-        self.conv2 = nn.Conv2d(input_dim, hid_dim, 1, stride, padding)
-        self.conv3 = nn.Conv2d(hid_dim, output_dim, 1, stride, padding)
+        self.conv1 = nn.Conv2d(input_dim, hid_dim, kernel_size, stride, padding)   
+        # self.conv2 = nn.Conv2d(hid_dim, hid_dim, kernel_size, stride, padding)
+        self.conv3 = nn.Conv2d(hid_dim, output_dim, kernel_size, stride, padding)
         self.dropout = nn.Dropout2d(dropout)
         
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = self.dropout(x)
-        x = F.relu(self.conv2(x))
-        x = self.dropout(x)
+        # x = F.relu(self.conv2(x))
+        # x = self.dropout(x)
         return self.conv3(x)
     
 class PositionalEncoding(nn.Module):
@@ -120,6 +120,7 @@ class _2DTrans(BertPreTrainedModel):
             # freeze all transformer weights
             for param in self.bert.parameters():
                 param.requires_grad = False
+        
 
 
 

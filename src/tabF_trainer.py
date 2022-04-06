@@ -29,6 +29,7 @@ from src import sampling
 from typing import List
 
 from pytorch_memlab import MemReporter
+import numpy as np
 
 import math
 
@@ -102,6 +103,17 @@ class TableFTrainer(BaseTrainer):
         model.to(self._device)
 #         print("devices:", self._gpu_count)
 #         model = nn.DataParallel(model) 
+
+
+        layer = args.bert_layer
+        for name, p in model.bert.named_parameters():
+            l = name.split('.')[2]
+            if 'encoder' in name and int(l) > layer:
+                p.requires_grad = False
+                  
+        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        print("######## trainable params:", params)
        
         # create optimizer
         optimizer_params = self._get_optimizer_params(model)
@@ -188,6 +200,7 @@ class TableFTrainer(BaseTrainer):
         model.to(self._device)
 #        print("devices:", self._gpu_count)
 #         model = nn.DataParallel(model) 
+
 
         # create loss function
         rel_criterion = torch.nn.CrossEntropyLoss(reduction='none')
@@ -297,13 +310,13 @@ class TableFTrainer(BaseTrainer):
             for batch in tqdm(data_loader, total=total, desc='Evaluate epoch %s' % epoch):
                 # move batch to selected device
                 batch = util.to_device(batch, self._device)
-                torch.save([self._tokenizer.decode(encoding, clean_up_tokenization_spaces=False).split() for encoding in batch['encodings']], 'words')
+                # torch.save([self._tokenizer.decode(encoding, clean_up_tokenization_spaces=False).split() for encoding in batch['encodings']], 'words')
+                # print([self._tokenizer.convert_ids_to_tokens(encoding) for encoding in batch['encodings']])
 #                 print(batch['ent_labels'])
 #                 print(batch['rel_labels'])
                 # run model (forward pass)
 #                 entity_labels, rel_labels = align_label(batch['ent_labels'], batch['rel_labels'], batch['start_token_masks'])
 #                 pred_entity_labels, pred_rel_labels = align_label(batch['pred_ent_labels'], batch['pred_rel_labels'], batch['start_token_masks'])
-
                 ent_logits, rel_logits = model(encodings=batch['encodings'],
                                                context_masks=batch['ctx_masks'],
                                                token_masks=batch['token_masks'],

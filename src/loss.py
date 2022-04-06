@@ -40,10 +40,15 @@ class TableLoss(Loss):
         # no diagonal
         rel_loss = rel_loss * (~torch.eye(rel_loss.shape[-1], dtype=torch.bool, device=self._device))
         
+        # upper diagonal
+        rel_loss = torch.triu(rel_loss, diagonal=1)
+     
         entity_loss = entity_loss[ctx_masks.view(-1)].sum()
+        
         # context mask
         rel_loss = rel_loss[ctx_masks.unsqueeze(1) * ctx_masks.unsqueeze(1).permute(0,2,1)].sum()
 
+        
         train_loss = entity_loss + rel_loss
 
         loss = torch.tensor([entity_loss.item(), rel_loss.item(), train_loss.item()])

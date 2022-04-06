@@ -64,12 +64,12 @@ class Evaluator:
 
             # select highest score at each cell
             ent_scores, ent_preds = torch.softmax(ent_logits,dim=-1).max(dim=-1)
-#             rel_scores, rel_preds = torch.softmax(rel_logits,dim=-1).max(dim=-1)
-#             print(batch['ent_labels'], ent_preds)
-            pred_entities = self._convert_pred_entities_end(ent_preds, ent_scores, batch['token_ctx_masks'][i], batch['token_masks'][i])         
-
-            pred_relations = self._convert_pred_relations_(rel_logits, pred_entities, batch['token_ctx_masks'][i], batch['token_masks'][i])
-
+            rel_scores, rel_preds = torch.softmax(rel_logits,dim=-1).max(dim=-1)
+            # print("gold labels:{}\n pred labels:{}".format(batch['ent_labels'], ent_preds))
+            pred_entities = self._convert_pred_entities_end(ent_preds, ent_scores, batch['token_ctx_masks'][i], batch['token_masks'][i])  # token_ctx_masks: length in token        
+            # print("pred entities:", pred_entities)
+            # pred_relations = self._convert_pred_relations_(rel_logits, pred_entities, batch['token_ctx_masks'][i], batch['token_masks'][i])
+            pred_relations = self._convert_pred_relations_upper(rel_preds, rel_scores, pred_entities, batch['token_masks'][i]) 
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)    
 #             print("pred:", pred_entities)
@@ -244,7 +244,8 @@ class Evaluator:
 
         return converted_preds
 
-    def _convert_pred_relations_(self, pred_logits: torch.tensor, pred_entities: List[tuple], token_ctx_mask: torch.tensor, token_mask: torch.tensor):
+    def _convert_pred_relations_(self, pred_logits: torch.tensor, pred_entities: List[tuple], 
+                                 token_ctx_mask: torch.tensor, token_mask: torch.tensor):
         
         converted_rels = []
         num_labels = pred_logits.shape[-1] 
@@ -284,7 +285,39 @@ class Evaluator:
                     converted_rels.append(converted_rel)
 
         return converted_rels
+    
+    
+    def _convert_pred_relations_upper(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
+                                pred_entities: List[tuple], token_mask: torch.tensor):
+        converted_rels = []
+        
+        pred_types = torch.triu(pred_types, diagonal=1)
+        for i,j in pred_types.nonzero():
+            label_idx = pred_types[i,j].float()
+            pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
+            if label_idx % 2 == 1: # R-X
+                head_idx = i 
+                tail_idx = j 
+            else: # L-X
+                head_idx = j 
+                tail_idx = i
+            
+            head_entity = self._find_entity(head_idx, token_mask, pred_entities)
+            tail_entity = self._find_entity(tail_idx, token_mask, pred_entities)
 
+            if head_entity == None or tail_entity == None:
+                continue
+            pred_head_type = head_entity[2]
+            pred_tail_type = tail_entity[2]
+            score = pred_scores[i][j].item()
+
+            head_start, head_end = head_entity[0], head_entity[1]
+            tail_start, tail_end = tail_entity[0], tail_entity[1]
+            converted_rel = ((head_start, head_end, pred_head_type),
+                             (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
+
+            converted_rels.append(converted_rel)
+        return converted_rels
     
     def _get_token_span(self, entity, token_mask, encoding_length):
         subtoken_start = entity[0]
@@ -297,13 +330,16 @@ class Evaluator:
         return token_span
             
             
-
     def _find_entity(self, idx, token_mask, entities):
+        # idx -> word level index
         span = token_mask[idx].nonzero().squeeze(0)
         for e in entities:
+            if len(span) == 0:
+                return None
             if span[-1] <= e[1] - 1 and e[0] - 1 <= span[-1]:
                 return e
         return None
+
 
     def _convert_by_setting(self, gt: List[List[Tuple]], pred: List[List[Tuple]],
                             include_entity_types: bool = True, include_score: bool = False):

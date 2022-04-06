@@ -13,7 +13,6 @@ def collect_entities(entities, context_size, token_count):
     ent_masks.fill_diagonal_(True)
     
     for e in entities:
-#         print("phrase:", e.phrase, "tokens", e.tokens, len(e.tokens))
         ent_mask = create_ent_mask(*e.span, context_size)
         ent_masks[e.span[0]:e.span[1], e.span[0]:e.span[1]] = True
 #         ent_mask[*e.span] = True
