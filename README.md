@@ -1,10 +1,16 @@
-# TablERT-CNN: Joint Entity and Relation Extraction Based on Table Labeling \\Using Convolutional Neural Networks
+# TablERT-CNN: Joint Entity and Relation Extraction Based on Table Labeling Using Convolutional Neural Networks
 
 This is the PyTorch code for the paper 'Joint Entity and Relation Extraction Based on Table Labeling \\Using Convolutional Neural Networks' accepted at [SPNLP2022](http://structuredprediction.github.io/SPNLP22), an ACL 2022 workshop.
+
 This software is implemented based on [SpERT](https://github.com/markus-eberts/spert) [1] and [TablERT](https://github.com/YoumiMa/TablERT) [2].
 ## Setup
 
-Requirments are listed in `requirements.txt`. It is recommended to prepare the enviroment via `pip install -r requirements.txt` to reproduce the results.
+Requirments are listed in `requirements.txt`. It is recommended to prepare the enviroment via the following command to reproduce the results.
+
+```
+pip install -r requirements.txt
+
+```
 
 ## Datasets
 
@@ -40,7 +46,7 @@ To evalute a model on CoNLL04 test set, fill in the field `model_path` in `confi
 python ./run.py eval --config config/eval_conll04.conf
 ```
 
-# Citation
+## Citation
 
 If you use the provided code in your work, please cite the following paper:
 
@@ -57,7 +63,7 @@ If you use the provided code in your work, please cite the following paper:
 }
 ```
 
-# References
+## References
 ```
 [1]Markus Eberts and Adrian Ulges, 2020, 'Span-based joint entity and relation extraction with transformerpre-training' In 24th European Conference on Artifi-cial Intelligence (ECAI).
 [2]
