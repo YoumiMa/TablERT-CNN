@@ -2,40 +2,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from transformers import AutoModel, AutoTokenizer, AutoConfig, BertPreTrainedModel
+from transformers import AutoModel, AutoConfig, BertPreTrainedModel
 
-
-from src import sampling
 from src import util
-
-
-from src.entities import Token
-from src.attention import TableTransformer, TableTransformerLayer
-from src.beam import Beam
-
-
 from typing import List
-import math
 
-class MLPNet(nn.Module):
-    def __init__(self, input_dim, output_dim, hid_dim=512, dropout=0.):
-        super(MLPNet, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hid_dim)   
-        self.fc2 = nn.Linear(hid_dim, hid_dim)
-        self.fc3 = nn.Linear(hid_dim, output_dim)
-        self.dropout = nn.Dropout(dropout)
-        
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = F.relu(self.fc2(x))
-        x = self.dropout(x)
-        return self.fc3(x)
 
-class ConvNet2layer(nn.Module):
+class ConvNet2layers(nn.Module):
     
     def __init__(self, input_dim, hid_dim, output_dim, kernel_size=3, stride=1, padding='same', dropout=0.3):
-        super(ConvNet2layer, self).__init__()
+        super(ConvNet2layers, self).__init__()
         self.conv1 = nn.Conv2d(input_dim, hid_dim, kernel_size, stride, padding)   
         self.conv2 = nn.Conv2d(hid_dim, output_dim, kernel_size, stride, padding)
         self.dropout = nn.Dropout2d(dropout)
@@ -45,10 +21,10 @@ class ConvNet2layer(nn.Module):
         x = self.dropout(x)
         return self.conv2(x)
 
-class ConvNet3layer(nn.Module):
+class ConvNet3layers(nn.Module):
     
     def __init__(self, input_dim, hid_dim, output_dim, kernel_size=3, stride=1, padding='same', dropout=0.3):
-        super(ConvNet3layer, self).__init__()
+        super(ConvNet3layers, self).__init__()
         self.conv1 = nn.Conv2d(input_dim, hid_dim, kernel_size, stride, padding)   
         self.conv2 = nn.Conv2d(hid_dim, hid_dim, kernel_size, stride, padding)
         self.conv3 = nn.Conv2d(hid_dim, output_dim, kernel_size, stride, padding)
@@ -64,9 +40,10 @@ class ConvNet3layer(nn.Module):
 
 class TablertCNN(BertPreTrainedModel):
     
-    """ The model for jointly extracting entities and relations using pretrained BERT.
+    ''' The model for jointly extracting entities and relations using pretrained BERT.
     
     Params:
+
     :config: configuration for pretrained BERT;
     :relation_labels: number of relation labels;
     :entity_labels: number of entity labels;
@@ -76,7 +53,7 @@ class TablertCNN(BertPreTrainedModel):
     :freeze_transformer: fix transformer parameters or not;
     :device: devices to run the model at, e.g. "cuda:1" or "cpu".
     
-    """
+    '''
 
     def __init__(self, config: AutoConfig, entity_labels: int, relation_labels: int,
                  encoder_hidden: int, kernel_size: int, conv_layers: int,
@@ -92,9 +69,9 @@ class TablertCNN(BertPreTrainedModel):
         encoder_dim = config.hidden_size * 2 
 
         if conv_layers == 2:
-            self.encoder = ConvNet2layer(encoder_dim, encoder_hidden, relation_labels, kernel_size)
+            self.encoder = ConvNet2layers(encoder_dim, encoder_hidden, relation_labels, kernel_size)
         elif conv_layers == 3:
-            self.encoder = ConvNet3layer(encoder_dim, encoder_hidden, relation_labels, kernel_size)
+            self.encoder = ConvNet3layers(encoder_dim, encoder_hidden, relation_labels, kernel_size)
 
         self.ent_classifier = nn.Linear(relation_labels, entity_labels)
         
@@ -118,16 +95,22 @@ class TablertCNN(BertPreTrainedModel):
 
     def _forward_table(self, h: torch.tensor):
         
+        ''' Main function for forwarding.
+
+        Obtain logits by convolution operations on span-level 
+        '''
         
-        # entity span repr.
+        # obtain table representations as word pair representations. 
         entry_repr = h
-        entry_repr[entry_repr == -1e30] = 0
+        entry_repr[entry_repr == -1e30] = 0 # zero out masked entries
         entry_repr = entry_repr.unsqueeze(1).repeat(1, h.shape[1], 1, 1)
-        
         rel_repr = torch.cat([entry_repr.transpose(1,2), entry_repr], dim=3)
         encoder_repr = self.dropout(rel_repr)
-
+        
+        # perform CNN encoding on the table reprentation.
         logits = self.encoder(encoder_repr.permute(0,3,1,2))
+
+        # logits for entity extraction and relation extraction.
         ent_logits = self.ent_classifier(logits.diagonal(dim1=2,dim2=3).transpose(2,1))
         rel_logits = logits.permute(0,2,3,1)
     
@@ -156,7 +139,10 @@ class TablertCNN(BertPreTrainedModel):
         outputs = self.bert(input_ids=encodings, attention_mask=context_masks.float())
         h = outputs[-1][bert_layer]
         
+        # max pooling among subwords to obtain word embeddings.
         token_spans_pool = util.max_pooling(h, token_masks)
+
+        # encode the word_embeddings via table-labeling.
         entity_logits, rel_logits = self._forward_table(token_spans_pool)
 
 
@@ -165,7 +151,22 @@ class TablertCNN(BertPreTrainedModel):
     
     def _forward_eval(self, encodings: torch.tensor, context_masks: torch.tensor, 
                         token_masks: torch.tensor, bert_layer: int):   
+
+        ''' Forward step for evaluation. Basically the same as that for training.
         
+        Params:
+        :encodings: token encodings (in subword), of shape (batch_size, subword_sequence_length);
+        :context_mask: masking out [PAD] from encodings, of shape (batch_size, subword_squence_length);
+        :token_mask: a tensor mapping subword to word (token), of shape (batch_size, n+2, subword_sequence_length);
+        :bert_layer: the layer index of BERT encoder whose outputs are used as sub-word embeddings;
+        
+        Return:
+        
+        :entity_logits: NE scores for each word on each batch, a list of length=batch_size containing tensors of shape (1, n, entity_labels);
+        :rel_logits: relation scores for each word pair on each batch, a list of length=batch_size containing tensors of shape (1, relation_labels, n, n).
+        
+        ''' 
+
         return self._forward_train(encodings, context_masks, token_masks, bert_layer)
 
 

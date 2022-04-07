@@ -209,6 +209,7 @@ class TableFTrainer(BaseTrainer):
                                             relation_labels = input_reader.relation_label_count,
                                             encoder_hidden = self.args.encoder_hidden,
                                             kernel_size = self.args.kernel_size,
+                                            conv_layers = self.args.conv_layers,
                                             prop_drop = self.args.prop_drop,
                                             freeze_transformer=self.args.freeze_transformer,
                                             device=self._device)

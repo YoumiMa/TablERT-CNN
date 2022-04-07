@@ -1,4 +1,5 @@
 import argparse
+from email.policy import default
 
 
 def _add_common_args(arg_parser):
@@ -27,16 +28,12 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--cpu', action='store_true', default=False,
                             help="If true, train/evaluate on CPU even if a CUDA device is available")
     arg_parser.add_argument('--eval_batch_size', type=int, default=1, help="Evaluation batch size")
-    arg_parser.add_argument('--rel_label_embedding', type=int, default=5, help="Dimensionality of relation label embedding")
-    arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
     arg_parser.add_argument('--encoder_hidden', type=int, default=100, help="Dimensionality of encoder hidden embedding")
-    arg_parser.add_argument('--encoder_output', type=int, default=256, help="Dimensionality of encoder output embedding")
     arg_parser.add_argument('--kernel_size', type=int, default=3, help="Kernel size")  
-    arg_parser.add_argument('--attn_type', type=str, default="WC", help="Type of encoder self attention")    
+    arg_parser.add_argument('--conv_layers', type=int, default=2, help="Number of CNN layers")
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used throughout the model")
     arg_parser.add_argument('--bert_layer', type=int, default=12, help="Bert layer to use (0 for embedding, 12 for the last layer)")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
-    arg_parser.add_argument('--beam_size', type=int, default=1, help="Beam size for decoding")
 
     # Misc
     arg_parser.add_argument('--seed', type=int, default=None, help="Seed")
