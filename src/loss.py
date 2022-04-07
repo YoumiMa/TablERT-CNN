@@ -2,7 +2,6 @@ from abc import ABC
 
 import torch
 import torch.nn.functional as F
-from pytorch_memlab import profile
 
 class Loss(ABC):
     def compute(self, *args, **kwargs):

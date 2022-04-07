@@ -15,7 +15,6 @@ from src.beam import Beam
 
 
 from typing import List
-from pytorch_memlab import profile, MemReporter
 import math
 
 class MLPNet(nn.Module):

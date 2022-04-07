@@ -404,9 +404,9 @@ class Evaluator:
         labels = [t.index for t in types]
         gt_all = [gt for gt in gt_all]
         pred_all = [pred for pred in pred_all]
-        per_type = prfs(gt_all, pred_all, labels=labels, average=None, zero_division=0)
-        micro = prfs(gt_all, pred_all, labels=labels, average='micro', zero_division=0)[:-1]
-        macro = prfs(gt_all, pred_all, labels=labels, average='macro', zero_division=0)[:-1]
+        per_type = prfs(gt_all, pred_all, labels=labels, average=None)
+        micro = prfs(gt_all, pred_all, labels=labels, average='micro')[:-1]
+        macro = prfs(gt_all, pred_all, labels=labels, average='macro')[:-1]
         total_support = sum(per_type[-1])
 
         if print_results:

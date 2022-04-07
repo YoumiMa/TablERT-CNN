@@ -7,7 +7,6 @@ import numpy as np
 
 from torch import Tensor
 from typing import Optional, Any, Tuple
-from pytorch_memlab import profile, MemReporter
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])

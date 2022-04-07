@@ -28,7 +28,6 @@ from src import sampling
 
 from typing import List
 
-from pytorch_memlab import MemReporter
 import numpy as np
 
 import math
@@ -151,10 +150,7 @@ class TableFTrainer(BaseTrainer):
         # eval validation set
         if args.init_eval:
             self._eval(model, compute_loss, validation_dataset, input_reader, 0, updates_epoch)
-
-        reporter = MemReporter(model)
-#         print("============ before bw ===============")
-#         reporter.report()        
+     
         # train
         for epoch in range(args.epochs):
             # train epoch
