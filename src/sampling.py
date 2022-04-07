@@ -15,7 +15,6 @@ def collect_entities(entities, context_size, token_count):
     for e in entities:
         ent_mask = create_ent_mask(*e.span, context_size)
         ent_masks[e.span[0]:e.span[1], e.span[0]:e.span[1]] = True
-#         ent_mask[*e.span] = True
         for i, t in enumerate(e.tokens):
             ent_labels[t.index + 1] = e.entity_labels[i].index
     
@@ -32,16 +31,12 @@ def collect_rels(rels, context_size):
         head = rel.head_entity
         tail = rel.tail_entity
 
-        # ## map to all words in an ent.
+        # map to all words in an ent.
         for i in range(head.span_word[0], head.span_word[1]):
             for j in range(tail.span_word[0], tail.span_word[1]):
                 rel_labels[i + 1][j + 1] = rel.relation_type.index * 2 - 1
                 rel_labels[j + 1][i + 1] = rel.relation_type.index * 2                 
-
-        ### map to last word in an ent.
-        # for i in range(former._tokens[-1].span_start, former._tokens[-1].span_end):
-        #     for j in range(latter._tokens[-1].span_start, latter._tokens[-1].span_end):
-        #         rel_labels[i][j] = rel.rel_label.index    
+                   
     return rel_labels
 
 
@@ -49,13 +44,10 @@ def create_sample(doc, shuffle = False):
     
     encoding = doc.encoding
 
-#     print(doc.doc_id)
     context_size = len(encoding)
     token_count = len(doc.tokens)
 
     ent_labels, ent_masks = collect_entities(doc.entities, context_size, token_count)
-#     print("entity labels:", ent_labels)
-#     print("masks:", ent_masks)
     
     rel_labels = collect_rels(doc.relations, context_size)
     
@@ -69,21 +61,16 @@ def create_sample(doc, shuffle = False):
     ctx_mask = torch.zeros(context_size, dtype=torch.bool)
     ctx_mask[:len(_encoding)] = 1
 
-    # token masks
+    # token masks in subword-level
     tokens = doc.tokens
-#     token_masks = torch.zeros((context_size, context_size), dtype=torch.bool)
     token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
+    # token masks in word-level
     token_ctx_mask = torch.zeros(context_size, dtype=torch.bool)
 
     for i,t in enumerate(tokens):
         token_masks[i+1, t.span_start:t.span_end] = 1
-#         print(t.span_start, t.span_end)
         token_ctx_mask[i + 1] = 1
 
-    
-    torch.set_printoptions(edgeitems=15)
-
-#     print("entity mask:", ent_masks, ent_masks.shape)
     return dict(encodings=encoding, ctx_masks=ctx_mask, ent_masks=ent_masks,
                             ent_labels=ent_labels, rel_labels=rel_labels, 
                             token_masks=token_masks, token_ctx_masks=token_ctx_mask)

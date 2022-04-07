@@ -28,17 +28,12 @@ class TableLoss(Loss):
         entity_logits = entity_logits.view(-1, entity_logits.shape[-1])
         entity_labels = entity_labels.view(-1)
 
-#         entity_masks = entity_masks.view(-1).float()
         entity_loss = self._entity_criterion(entity_logits, entity_labels)
-        
-#         print(rel_labels.shape, rel_logits.shape)
         rel_loss = self._rel_criterion(rel_logits.permute(0,3,1,2), rel_labels)
-#         print((ctx_masks.unsqueeze(1) * ctx_masks.unsqueeze(1).permute(0,2,1)).long())
 
-#         print("pre rel:", rel_logits.argmax(dim=-1) * (ctx_masks.unsqueeze(1) * ctx_masks.unsqueeze(1).permute(0,2,1)))
         # no diagonal
         rel_loss = rel_loss * (~torch.eye(rel_loss.shape[-1], dtype=torch.bool, device=self._device))
-        
+
         # upper diagonal
         rel_loss = torch.triu(rel_loss, diagonal=1)
      
@@ -51,9 +46,8 @@ class TableLoss(Loss):
         train_loss = entity_loss + rel_loss
 
         loss = torch.tensor([entity_loss.item(), rel_loss.item(), train_loss.item()])
-        # print("loss:", entity_loss, rel_loss)
+        
         if not is_eval:
-#             print(torch.cuda.memory_summary())
             train_loss.backward()
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
             self._optimizer.step()

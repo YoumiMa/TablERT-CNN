@@ -35,22 +35,6 @@ import math
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
-def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tensor):
-    """ Align tokenized label to word-piece label, masked by token_mask. """
-
-    batch_size = entity.shape[0]
-    token_count = token_mask.to(torch.bool).sum()
-    batch_entity_labels = []
-    batch_rel_labels = []
-
-    for b in range(batch_size):
-        batch_entity_labels.append(torch.masked_select(entity[b], token_mask[b].sum(dim=0).to(torch.bool)))
-        rel_ = rel[b][token_mask[b].sum(dim=0).to(torch.bool)]
-        batch_rel_labels.append(rel_.t()[token_mask[b].sum(dim=0).to(torch.bool)].t())
-    return batch_entity_labels, batch_rel_labels
-
-
-
 class TableFTrainer(BaseTrainer):
     """ Joint entity and relation extraction training and evaluation """
 
@@ -223,10 +207,7 @@ class TableFTrainer(BaseTrainer):
                                             # src model parameters
                                             entity_labels = input_reader.entity_label_count,
                                             relation_labels = input_reader.relation_label_count,
-                                            entity_label_embedding=self.args.entity_label_embedding,
-                                            rel_label_embedding = self.args.rel_label_embedding,
                                             encoder_hidden = self.args.encoder_hidden,
-                                            encoder_output = self.args.encoder_output,
                                             kernel_size = self.args.kernel_size,
                                             prop_drop = self.args.prop_drop,
                                             freeze_transformer=self.args.freeze_transformer,
@@ -258,12 +239,9 @@ class TableFTrainer(BaseTrainer):
 
             model.train()
             batch = util.to_device(batch, self._device)
-#             print([self._tokenizer.convert_ids_to_tokens(encoding) for encoding in batch['encodings']])
-#             entity_labels, rel_labels = align_label(batch['ent_labels'], batch['rel_labels'], batch['start_token_masks'])
-#             pred_entity_labels, pred_rel_labels = align_label(batch['pred_ent_labels'], batch['pred_rel_labels'], batch['start_token_masks'])
-            ent_logits, rel_logits = model(encodings=batch['encodings'], context_masks=batch['ctx_masks'],
+            ent_logits, rel_logits = model(encodings=batch['encodings'],
+                                           context_masks=batch['ctx_masks'],
                                            token_masks=batch['token_masks'],
-                                           token_context_masks=batch['token_ctx_masks'], 
                                            bert_layer = self.args.bert_layer)
 
             loss = compute_loss.compute(ent_logits, batch['ent_labels'], rel_logits, batch['rel_labels'], batch['token_ctx_masks']) 
@@ -306,17 +284,10 @@ class TableFTrainer(BaseTrainer):
             for batch in tqdm(data_loader, total=total, desc='Evaluate epoch %s' % epoch):
                 # move batch to selected device
                 batch = util.to_device(batch, self._device)
-                # torch.save([self._tokenizer.decode(encoding, clean_up_tokenization_spaces=False).split() for encoding in batch['encodings']], 'words')
-                # print([self._tokenizer.convert_ids_to_tokens(encoding) for encoding in batch['encodings']])
-#                 print(batch['ent_labels'])
-#                 print(batch['rel_labels'])
-                # run model (forward pass)
-#                 entity_labels, rel_labels = align_label(batch['ent_labels'], batch['rel_labels'], batch['start_token_masks'])
-#                 pred_entity_labels, pred_rel_labels = align_label(batch['pred_ent_labels'], batch['pred_rel_labels'], batch['start_token_masks'])
+
                 ent_logits, rel_logits = model(encodings=batch['encodings'],
                                                context_masks=batch['ctx_masks'],
                                                token_masks=batch['token_masks'],
-                                               token_context_masks=batch['token_ctx_masks'],
                                                bert_layer = self.args.bert_layer)
 
                 loss = compute_loss.compute(ent_logits, batch['ent_labels'], rel_logits, batch['rel_labels'], batch['token_ctx_masks'], is_eval=True) 

@@ -65,15 +65,13 @@ class Evaluator:
             # select highest score at each cell
             ent_scores, ent_preds = torch.softmax(ent_logits,dim=-1).max(dim=-1)
             rel_scores, rel_preds = torch.softmax(rel_logits,dim=-1).max(dim=-1)
-            # print("gold labels:{}\n pred labels:{}".format(batch['ent_labels'], ent_preds))
+
             pred_entities = self._convert_pred_entities_end(ent_preds, ent_scores, batch['token_ctx_masks'][i], batch['token_masks'][i])  # token_ctx_masks: length in token        
-            # print("pred entities:", pred_entities)
-            # pred_relations = self._convert_pred_relations_(rel_logits, pred_entities, batch['token_ctx_masks'][i], batch['token_masks'][i])
             pred_relations = self._convert_pred_relations_upper(rel_preds, rel_scores, pred_entities, batch['token_masks'][i]) 
+            
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)    
-#             print("pred:", pred_entities)
-#             print("gold:", self._gt_entities[i])
+
     
     def compute_scores(self):
 
@@ -206,86 +204,6 @@ class Evaluator:
 
         return converted_preds
 
-
-    def _convert_pred_entities_start(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-                                token_mask: torch.tensor):
-
-        converted_preds = []
-        encoding_length = token_mask.shape[0]
-        curr_type = 0
-        start = 1
-
-        for i in range(pred_types.shape[0]):
-            curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
-            type_idx = pred_types[i].item()
-            score = pred_scores.item()
-            
-            is_start = type_idx % 4 == 1 or type_idx % 4 == 2 or type_idx == 0
-            
-            if is_start and curr_type != 0:
-                # every time encounters a start entity, update the entity list once
-                end = curr_token[0].item() + 1
-                converted_pred = (start, end, entity_type, score)
-                converted_preds.append(converted_pred)                
-                start = curr_token[0].item() + 1              
-            
-            # update the BILOU label of current token
-            curr_type = math.ceil(type_idx/4)
-            entity_type = self._input_reader.get_entity_type(curr_type)  
-
-
-            if type_idx == 0:
-                start = curr_token[-1].item() + 2
-        
-        if curr_type != 0: # last word in the sentence is included in an entity span
-                converted_pred = (start, curr_token[-1].item() + 2, entity_type, score)
-                converted_preds.append(converted_pred)             
-
-
-        return converted_preds
-
-    def _convert_pred_relations_(self, pred_logits: torch.tensor, pred_entities: List[tuple], 
-                                 token_ctx_mask: torch.tensor, token_mask: torch.tensor):
-        
-        converted_rels = []
-        num_labels = pred_logits.shape[-1] 
-        encoding_length = token_ctx_mask.long().sum() + 1
-
-        forward_labels = [0] + [i for i in range(1, num_labels, 2)]
-        backward_labels = [0] + [i for i in range(2, num_labels, 2)]
-        forward_logits = pred_logits[:, :, forward_labels]
-        backward_logits = pred_logits[:, :, backward_labels]
-        scores = forward_logits + backward_logits.transpose(0,1)
-#         scores = pred_logits
-#         print("forward:", forward_logits, forward_logits.argmax(dim=0))
-#         print("backward:", backward_logits, backward_logits.argmax(dim=0))
-#         print("scores as head:", scores.argmax(dim=0))
-        
-        for head in pred_entities:
-#             head_span = range(head[0], head[1])
-            head_span = self._get_token_span(head, token_mask, encoding_length)
-            for tail in pred_entities:
-#                 tail_span = range(tail[0], tail[1])
-                tail_span = self._get_token_span(tail, token_mask, encoding_length)
-
-                score = scores[head_span[0]:head_span[-1]+1, tail_span[0]:tail_span[-1]+1, :]
-                score = torch.softmax(score.sum(dim=0).sum(dim=0), dim=-1)
-                pred_score, rel = score.max(dim=-1)
-
-                if rel.item() and head != tail: # forward
-                    pred_head_type = head[2]
-                    pred_tail_type = tail[2]
-                    pred_rel_type = self._input_reader.get_relation_type(rel.item())
-                    score = pred_score.item()
-
-                    head_start, head_end = head[0], head[1]
-                    tail_start, tail_end = tail[0], tail[1]
-                    converted_rel = ((head_start, head_end, pred_head_type),
-                                         (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
-                    converted_rels.append(converted_rel)
-
-        return converted_rels
-    
     
     def _convert_pred_relations_upper(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
                                 pred_entities: List[tuple], token_mask: torch.tensor):
