@@ -24,7 +24,6 @@ The details are listed in `requirements.txt`. It is recommended to prepare the e
 
 ```
 pip install -r requirements.txt
-
 ```
 
 ## Datasets
@@ -45,7 +44,7 @@ We have provided the data template in the folder `data/datasets/ace05/`.
 We further process the dataset used in [DyGIE++](https://github.com/dwadden/dygiepp)[5]. To obtain the data, follow the instructions provided by DyGIE++. Then, run the pre-processing script as below.
 
 ``` 
-python3 preprocessing/dygiepp2tabcnn.py $SPERT_DATA_DIR data/datasets/conll04/ 
+python3 preprocessing/dygiepp2tabcnn.py $SPERT_DATA_DIR data/datasets/ace05/ 
 ```
 
 
@@ -56,7 +55,6 @@ We further process the dataset used in [SpERT](https://github.com/markus-eberts/
 
 ``` 
 python3 preprocessing/spert2tabcnn.py $SPERT_DATA_DIR data/datasets/ade/
-
 ```
 
 Note that the converted dataset has no overlapping entities.
